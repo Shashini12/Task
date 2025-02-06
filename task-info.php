@@ -23,7 +23,55 @@ if(isset($_GET['delete_task'])){
 }
 
 if(isset($_POST['add_task_post'])){
-    $obj_admin->add_new_task($_POST);
+    $task_title = $_POST['task_title'];
+    $task_description = $_POST['task_description'];
+    $t_start_time = $_POST['t_start_time'];
+    $t_end_time = $_POST['t_end_time'];
+    $assign_to = $_POST['assign_to'];
+    $status = 0; // default status
+
+    // Handle file upload
+    $uploaded_file = '';
+    if (isset($_FILES['uploaded_file']) && $_FILES['uploaded_file']['error'] == 0) {
+        $allowed_extensions = ['doc', 'docx', 'xls', 'xlsx', 'pdf', 'jpg', 'jpeg'];
+        $upload_dir = "uploads/";
+
+        $file_name = $_FILES['uploaded_file']['name'];
+        $file_tmp = $_FILES['uploaded_file']['tmp_name'];
+        $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+
+        if (in_array($file_ext, $allowed_extensions)) {
+            $new_file_name = time() . "_" . basename($file_name);
+            $destination = $upload_dir . $new_file_name;
+
+            if (move_uploaded_file($file_tmp, $destination)) {
+                $uploaded_file = $destination;
+            } else {
+                echo "Error uploading file.";
+            }
+        } else {
+            echo "Invalid file type.";
+        }
+    }
+
+    try {
+        $sql = "INSERT INTO task_info (t_title, t_description, t_start_time, t_end_time, t_user_id, status, uploaded_file) 
+                VALUES (:task_title, :task_description, :t_start_time, :t_end_time, :assign_to, :status, :uploaded_file)";
+        $stmt = $obj_admin->db->prepare($sql);
+        $stmt->bindParam(':task_title', $task_title);
+        $stmt->bindParam(':task_description', $task_description);
+        $stmt->bindParam(':t_start_time', $t_start_time);
+        $stmt->bindParam(':t_end_time', $t_end_time);
+        $stmt->bindParam(':assign_to', $assign_to);
+        $stmt->bindParam(':status', $status);
+        $stmt->bindParam(':uploaded_file', $uploaded_file);
+        $stmt->execute();
+
+        $_SESSION['Task_msg'] = 'Task added successfully';
+        header('Location: task-info.php');
+    } catch (PDOException $e) {
+        echo $e->getMessage();
+    }
 }
 
 $page_name="Task_Info";
@@ -48,7 +96,7 @@ include("include/sidebar.php");
         <div class="modal-body">
           <div class="row">
             <div class="col-md-12">
-              <form role="form" action="" method="post" autocomplete="off">
+              <form role="form" action="" method="post" autocomplete="off" enctype="multipart/form-data">
                 <div class="form-horizontal">
                   <div class="form-group">
                     <label class="control-label col-sm-5"> Task Title</label>
@@ -59,7 +107,7 @@ include("include/sidebar.php");
                   <div class="form-group">
                     <label class="control-label col-sm-5">Task Description</label>
                     <div class="col-sm-7">
-                      <textarea name="task_description" id="task_description" placeholder="Text Deskcription" class="form-control" rows="5" cols="5"></textarea>
+                      <textarea name="task_description" id="task_description" placeholder="Text Description" class="form-control" rows="5" cols="5"></textarea>
                     </div>
                   </div>
                   <div class="form-group">
@@ -74,6 +122,7 @@ include("include/sidebar.php");
                       <input type="text" name="t_end_time" id="t_end_time" class="form-control">
                     </div>
                   </div>
+                  
                   <div class="form-group">
                     <label class="control-label col-sm-5">Assign To</label>
                     <div class="col-sm-7">
@@ -81,7 +130,7 @@ include("include/sidebar.php");
                         $sql = "SELECT user_id, fullname FROM tbl_admin WHERE user_role = 2";
                         $info = $obj_admin->manage_all_info($sql);   
                       ?>
-                      <select class="form-control" name="assign_to" id="aassign_to" required>
+                      <select class="form-control" name="assign_to" id="assign_to" required>
                         <option value="">Select Employee...</option>
 
                         <?php while($row = $info->fetch(PDO::FETCH_ASSOC)){ ?>
@@ -90,6 +139,12 @@ include("include/sidebar.php");
                       </select>
                     </div>
                    
+                  </div>
+                  <div class="form-group">
+                    <label class="control-label col-sm-5">Upload File</label>
+                    <div class="col-sm-7">
+                      <input type="file" name="uploaded_file" class="form-control">
+                    </div>
                   </div>
                   <div class="form-group">
                   </div>
